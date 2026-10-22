@@ -4,8 +4,6 @@ Based on ATTiny85
 
 Files include:
 
-PCB design files (KiCAD)
-
-Instructions
-
-Firmware (Arduino IDE)
+* PCB design files (KiCAD)
+* Instructions
+* Firmware (Arduino IDE)
