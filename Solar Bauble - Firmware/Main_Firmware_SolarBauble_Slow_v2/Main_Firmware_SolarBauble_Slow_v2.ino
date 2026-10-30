@@ -20,13 +20,13 @@
 // Configuration Parameters
 // ADC Thresholds mapped via 100k/10k divider to 1.1V Internal Ref
 const int ADC_PRIMING_LOW      = 50;   // ~0.5V: must drop below this to prime wake up
-const int ADC_SLEEP_OFF        = 180;  // ~2.4V: forces absolute deep sleep
-const int ADC_RED_ONLY_MIN     = 200;  // ~2.5V: minimum threshold for Red-only profile
+const int ADC_SLEEP_OFF        = 150;  // ~2.4V: forces absolute deep sleep
+const int ADC_RED_ONLY_MIN     = 160;  // ~2.5V: minimum threshold for Red-only profile
 const int ADC_RUNNING_HIGH     = 250;  // ~3.4V: triggers wake up & Red/Green mode
 
 // Internal Vcc Thresholds (in Millivolts) for the Over-Voltage Dump Block
-const long VCC_OVERVOLTAGE_HIGH = 5200; // 5.2V: Over-voltage protection trip point
-const long VCC_OVERVOLTAGE_LOW  = 5100; // 5.1V: Over-voltage release point (0.1V hysteresis)
+const long VCC_OVERVOLTAGE_HIGH = 5300; // 5.3V: Over-voltage protection trip point
+const long VCC_OVERVOLTAGE_LOW  = 5200; // 5.2V: Over-voltage release point (0.1V hysteresis)
 
 // State Machine Definitions
 #define STATE_SLEEPING           0
@@ -146,8 +146,8 @@ void loop() {
     bool redOnlyMode = (currentState == STATE_RUNNING_RED_ONLY);
     executeTwinklePattern(redOnlyMode);
   } else {
-    // Under threshold / Locked out: Sleep for 1 second, then loop restarts to check SW
-    wdt_sleep_delay(WDTO_1S);
+    // Under threshold / Locked out: Sleep for 4 seconds, then loop restarts to check SW
+    wdt_sleep_delay(WDTO_4S);
   }
 }
 
@@ -216,11 +216,11 @@ void executeTwinklePattern(bool redOnlyMode) {
   
   int randomWaitChoice = random(0, 5);
   switch (randomWaitChoice) {
-    case 0: wdt_sleep_delay(WDTO_60MS);  break;
-    case 1: wdt_sleep_delay(WDTO_120MS); break;
-    case 2: wdt_sleep_delay(WDTO_250MS); break;
-    case 3: wdt_sleep_delay(WDTO_500MS); break;
-    case 4: wdt_sleep_delay(WDTO_1S);    break;
+    case 0: wdt_sleep_delay(WDTO_120MS);  break;
+    case 1: wdt_sleep_delay(WDTO_250MS); break;
+    case 2: wdt_sleep_delay(WDTO_500MS); break;
+    case 3: wdt_sleep_delay(WDTO_1S); break;
+    case 4: wdt_sleep_delay(WDTO_2S);    break;
   }
 }
 
