@@ -20,9 +20,9 @@
 // Configuration Parameters
 // ADC Thresholds mapped via 100k/10k divider to 1.1V Internal Ref
 const int ADC_PRIMING_LOW = 50;    // ~0.5V: must drop below this to prime wake up
-const int ADC_SLEEP_OFF = 100;     //  forces absolute deep sleep
-const int ADC_RED_ONLY_MIN = 120;  //  minimum threshold for Red-only profile
-const int ADC_RUNNING_HIGH = 200;  //  triggers wake up & Red/Green mode
+const int ADC_SLEEP_OFF = 90;     //  forces absolute deep sleep
+const int ADC_RED_ONLY_MIN = 100;  //  minimum threshold for Red-only profile
+const int ADC_RUNNING_HIGH = 120;  //  triggers wake up & Red/Green mode
 
 // Internal Vcc Thresholds (in Millivolts) for the Over-Voltage Dump Block
 const long VCC_OVERVOLTAGE_HIGH = 5200;  // 5.2V: Over-voltage protection trip point
