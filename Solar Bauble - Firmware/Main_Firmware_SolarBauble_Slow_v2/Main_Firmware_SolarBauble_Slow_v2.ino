@@ -19,14 +19,18 @@
 
 // Configuration Parameters
 // ADC Thresholds mapped via 100k/10k divider to 1.1V Internal Ref
+// The ADC value at the midpoint of the voltage divider is ADC = approx Vin * 84.63
+// LED stop working at voltage of 2.1V
+
 const int ADC_PRIMING_LOW = 50;    // ~0.5V: must drop below this to prime wake up
-const int ADC_SLEEP_OFF = 90;     //  forces absolute deep sleep
-const int ADC_RED_ONLY_MIN = 100;  //  minimum threshold for Red-only profile
-const int ADC_RUNNING_HIGH = 120;  //  triggers wake up & Red/Green mode
+const int ADC_SLEEP_OFF = 175;     //  forces absolute deep sleep (low than 2.1V DC)
+const int ADC_RED_ONLY_MIN = 180;  //  minimum threshold for Red-only profile
+const int ADC_RUNNING_HIGH = 200;  //  triggers wake up & Red/Green mode
 
 // Internal Vcc Thresholds (in Millivolts) for the Over-Voltage Dump Block
-const long VCC_OVERVOLTAGE_HIGH = 5200;  // 5.2V: Over-voltage protection trip point
-const long VCC_OVERVOLTAGE_LOW = 5100;   // 5.1V: Over-voltage release point (0.1V hysteresis)
+// PV voltage is 5.6V max, but through a 1N4001 diode. Voltage drop at 1mA = 0.6V at 1uA its 0.45V. SO capacitor protected
+const long VCC_OVERVOLTAGE_HIGH = 5000;  // 5.0V: Over-voltage protection trip point
+const long VCC_OVERVOLTAGE_LOW = 4950;   // 4.95V: Over-voltage release point (0.05V hysteresis)
 
 // State Machine Definitions
 #define STATE_SLEEPING 0
@@ -56,19 +60,14 @@ long readVccInternal();
 void setup() {
   pinMode(sw, INPUT);
   clearLED();
-
   // Set ADC Prescaler to 8 for stable 1MHz clock operations (ADPS1 and ADPS0)
   ADCSRA = (1 << ADPS1) | (1 << ADPS0);
-
   // Enable global interrupts so the Watchdog can wake up the CPU
   sei();
-
   // Give ADC voltage reference time to settle on boot
   delay(10);
-
   // Check real capacitor voltage immediately at boot
   long initialVcc = readVccInternal();
-
   delay(5);
   // Restore reference for external divider reading
   analogReference(INTERNAL1V1);
@@ -92,8 +91,9 @@ void setup() {
 }
 
 void loop() {
-  // Give ADC hardware time (5ms) to stabilize after waking up
-  delay(5);
+  // Give ADC hardware time (2.5uS) to stabilize after waking up
+  delayMicroseconds(2500);
+  //delay(5);        // Give internal hardware ref time to stabilize
 
   // 1. HIGHEST PRIORITY INTERNAL VCC OVERVOLTAGE EVALUATION
   long vccValue = readVccInternal();
@@ -117,7 +117,8 @@ void loop() {
 
   // 3. RESTORE ADC FOR SW PIN METERING
   analogReference(INTERNAL1V1);
-  delay(5);        // Give internal hardware ref time to stabilize
+  delayMicroseconds(2500);
+  //delay(5);        // Give internal hardware ref time to stabilize
   analogRead(A1);  // Dummy read to flush multiplexer registers with new reference
 
   // 4. Sample the actual scaled potential divider voltage on Channel A1 (Physical Pin 7)
@@ -152,18 +153,17 @@ void loop() {
     bool redOnlyMode = (currentState == STATE_RUNNING_RED_ONLY);
     executeTwinklePattern(redOnlyMode);
   } else {
-    // Under threshold / Locked out: Sleep for 4 seconds, then loop restarts to check SW
-    wdt_sleep_delay(WDTO_4S);
+    // Under threshold / Locked out: Sleep for 8 seconds, then loop restarts to check SW
+    wdt_sleep_delay(WDTO_8S);
   }
 }
 
 // Alternating block flash sequence for massive current dump and high visibility
 void executeOverVoltageBlinkSequence() {
   // Phase A: Turn on all Red LEDs for brief flash
-  setAllRed();  // Micro-strobe the 4 red channels sequentially
+  setAllRed();                  // Micro-strobe the 4 red channels sequentially
   clearLED();                   // High-Z block to prevent bleed
   wdt_sleep_delay(WDTO_250MS);  // 250ms power-down sleep pause
-
   // Phase B: Turn on all Green LEDs for brief flash
   setAllGreen();  // Micro-strobe the 4 green channels sequentially
   clearLED();

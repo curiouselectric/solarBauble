@@ -3794,7 +3794,7 @@
 				)
 			)
 		)
-		(property "Value" "1N5819"
+		(property "Value" "1N4148"
 			(at 55.88 33.02 0)
 			(show_name no)
 			(do_not_autoplace no)
