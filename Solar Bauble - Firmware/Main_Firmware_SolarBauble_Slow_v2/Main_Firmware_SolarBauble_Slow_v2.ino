@@ -29,8 +29,8 @@ const int ADC_RUNNING_HIGH = 200;  //  triggers wake up & Red/Green mode
 
 // Internal Vcc Thresholds (in Millivolts) for the Over-Voltage Dump Block
 // PV voltage is 5.6V max, but through a 1N4001 diode. Voltage drop at 1mA = 0.6V at 1uA its 0.45V. SO capacitor protected
-const long VCC_OVERVOLTAGE_HIGH = 5000;  // 5.0V: Over-voltage protection trip point
-const long VCC_OVERVOLTAGE_LOW = 4950;   // 4.95V: Over-voltage release point (0.05V hysteresis)
+const long VCC_OVERVOLTAGE_HIGH = 4975;  // 4.975V: Over-voltage protection trip point
+const long VCC_OVERVOLTAGE_LOW = 4950;    // 4.925V: Over-voltage release point (0.05V hysteresis)
 
 // State Machine Definitions
 #define STATE_SLEEPING 0
@@ -98,14 +98,10 @@ void loop() {
   // 1. HIGHEST PRIORITY INTERNAL VCC OVERVOLTAGE EVALUATION
   long vccValue = readVccInternal();
 
-  if (!overVoltageActive) {
-    if (vccValue >= VCC_OVERVOLTAGE_HIGH) {
-      overVoltageActive = true;
-    }
-  } else {
-    if (vccValue < VCC_OVERVOLTAGE_LOW) {
-      overVoltageActive = false;
-    }
+  if (vccValue >= VCC_OVERVOLTAGE_HIGH) {
+    overVoltageActive = true;
+  } else if (vccValue < VCC_OVERVOLTAGE_LOW) {
+    overVoltageActive = false;
   }
 
   // 2. OVER-VOLTAGE HIGH VISIBILITY ALTERNATING BLINK BLOCK
@@ -115,46 +111,49 @@ void loop() {
     return;                             // Intercept loop execution instantly to re-sample Vcc rail directly
   }
 
-  // 3. RESTORE ADC FOR SW PIN METERING
-  analogReference(INTERNAL1V1);
-  delayMicroseconds(2500);
-  //delay(5);        // Give internal hardware ref time to stabilize
-  analogRead(A1);  // Dummy read to flush multiplexer registers with new reference
 
-  // 4. Sample the actual scaled potential divider voltage on Channel A1 (Physical Pin 7)
-  int sensorValue = analogRead(A1);
+  if (!overVoltageActive) {
+    // 3. RESTORE ADC FOR SW PIN METERING
+    analogReference(INTERNAL1V1);
+    delayMicroseconds(2500);
+    //delay(5);        // Give internal hardware ref time to stabilize
+    analogRead(A1);  // Dummy read to flush multiplexer registers with new reference
 
-  // 5. Track the low condition needed to prime a future wake up window
-  if (sensorValue <= ADC_PRIMING_LOW) {
-    primedToWake = true;
-  }
+    // 4. Sample the actual scaled potential divider voltage on Channel A1 (Physical Pin 7)
+    int sensorValue = analogRead(A1);
 
-  // 6. State Machine Transition Evaluation
-  if (currentState == STATE_SLEEPING) {
-    if (primedToWake && (sensorValue >= ADC_RUNNING_HIGH)) {
-      currentState = STATE_RUNNING_FULL;
-      //primedToWake = false; // Reset priming flag only after verified full wake up
-    } else if (primedToWake && (sensorValue >= ADC_RED_ONLY_MIN)) {
-      currentState = STATE_RUNNING_RED_ONLY;
-      //primedToWake = false; // Reset priming flag only after verified full wake up
+    // 5. Track the low condition needed to prime a future wake up window
+    if (sensorValue <= ADC_PRIMING_LOW) {
+      primedToWake = true;
     }
-  } else {
-    if (sensorValue < ADC_SLEEP_OFF) {
-      currentState = STATE_SLEEPING;
-    } else if (sensorValue >= ADC_RUNNING_HIGH) {
-      currentState = STATE_RUNNING_FULL;
-    } else if (sensorValue >= ADC_RED_ONLY_MIN) {
-      currentState = STATE_RUNNING_RED_ONLY;
-    }
-  }
 
-  // 7. Execution Processing Blocks
-  if (currentState == STATE_RUNNING_FULL || currentState == STATE_RUNNING_RED_ONLY) {
-    bool redOnlyMode = (currentState == STATE_RUNNING_RED_ONLY);
-    executeTwinklePattern(redOnlyMode);
-  } else {
-    // Under threshold / Locked out: Sleep for 8 seconds, then loop restarts to check SW
-    wdt_sleep_delay(WDTO_8S);
+    // 6. State Machine Transition Evaluation
+    if (currentState == STATE_SLEEPING) {
+      if (primedToWake && (sensorValue >= ADC_RUNNING_HIGH)) {
+        currentState = STATE_RUNNING_FULL;
+        //primedToWake = false; // Reset priming flag only after verified full wake up
+      } else if (primedToWake && (sensorValue >= ADC_RED_ONLY_MIN)) {
+        currentState = STATE_RUNNING_RED_ONLY;
+        //primedToWake = false; // Reset priming flag only after verified full wake up
+      }
+    } else {
+      if (sensorValue < ADC_SLEEP_OFF) {
+        currentState = STATE_SLEEPING;
+      } else if (sensorValue >= ADC_RUNNING_HIGH) {
+        currentState = STATE_RUNNING_FULL;
+      } else if (sensorValue >= ADC_RED_ONLY_MIN) {
+        currentState = STATE_RUNNING_RED_ONLY;
+      }
+    }
+
+    // 7. Execution Processing Blocks
+    if (currentState == STATE_RUNNING_FULL || currentState == STATE_RUNNING_RED_ONLY) {
+      bool redOnlyMode = (currentState == STATE_RUNNING_RED_ONLY);
+      executeTwinklePattern(redOnlyMode);
+    } else {
+      // Under threshold / Locked out: Sleep for 8 seconds, then loop restarts to check SW
+      wdt_sleep_delay(WDTO_8S);
+    }
   }
 }
 
